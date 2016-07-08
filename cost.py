@@ -11,7 +11,7 @@ def log_likelihoods(model: GeneralizedLinearModel) -> T.TensorVariable:
     return log_likelihoods
 
 
-def negatve_log_likelihood(model: GeneralizedLinearModel) -> T.TensorVariable:
+def negative_log_likelihood(model: GeneralizedLinearModel) -> T.TensorVariable:
 
     individual_log_likelihoods = log_likelihoods(model)
 

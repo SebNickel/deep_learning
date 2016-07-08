@@ -1,10 +1,10 @@
 from typing import Tuple
 import pickle
 import gzip
-from datasets import Dataset
+from datasets import SharedDataset
 
 
-def load(file_path: str='mnist.pkl.gz') -> Tuple[Dataset, Dataset, Dataset]:
+def load(file_path: str='mnist.pkl.gz') -> Tuple[SharedDataset, SharedDataset, SharedDataset]:
 
     with gzip.open(file_path, 'rb') as file:
 
@@ -20,8 +20,8 @@ def load(file_path: str='mnist.pkl.gz') -> Tuple[Dataset, Dataset, Dataset]:
     validation_vectors, validation_labels = validation
     test_vectors, test_labels = test
 
-    training_set = Dataset(training_vectors, training_labels)
-    validation_set = Dataset(validation_vectors, validation_labels)
-    test_set = Dataset(test_vectors, test_labels)
+    training_set = SharedDataset(training_vectors, training_labels)
+    validation_set = SharedDataset(validation_vectors, validation_labels)
+    test_set = SharedDataset(test_vectors, test_labels)
 
     return training_set, validation_set, test_set

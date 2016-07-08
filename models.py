@@ -14,16 +14,16 @@ class GeneralizedLinearModel:
     y = T.ivector('y')
 
     def __init__(self,
-                 vector_dim: int,
-                 num_classes: int,
+                 input_dim: int,
+                 linear_output_dim: int,
                  link_function: Function):
 
-        self.vector_dim = vector_dim
-        self.num_classes = num_classes
+        self.input_dim = input_dim
+        self.linear_output_dim = linear_output_dim
         self.link_function = link_function
 
-        self.W_shape = (vector_dim, num_classes)
-        self.b_shape = (num_classes,)
+        self.W_shape = (input_dim, linear_output_dim)
+        self.b_shape = (linear_output_dim,)
 
     @property
     def linear_projection(self):

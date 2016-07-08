@@ -5,13 +5,13 @@ import timeit
 from mnist_data import load
 from models import GeneralizedLinearModel
 from sgd import SGD
-from datasets import Dataset
+from datasets import SharedDataset
 from model_functions import compile_testing_function
 from cost import mean_negative_log_likelihood, mean_error
 
 
-def train(training_set: Dataset,
-          validation_set: Dataset,
+def train(training_set: SharedDataset,
+          validation_set: SharedDataset,
           vector_dim: int,
           num_classes: int,
           link_function: Function,
@@ -66,12 +66,12 @@ def train(training_set: Dataset,
 
 
 def test(model: GeneralizedLinearModel,
-         test_set: Dataset,
+         test_set: SharedDataset,
          cost: T.TensorVariable) -> float:
 
-    test = compile_testing_function(model, cost)
+    test = compile_testing_function(model, cost, test_set)
 
-    loss = test(test_set.vectors, test_set.labels)
+    loss = test()
 
     return loss
 

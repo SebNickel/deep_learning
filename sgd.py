@@ -1,8 +1,7 @@
 import numpy
 from theano import tensor as T
-from datasets import Dataset
-from iteration import batch_iterator
-from model_functions import compile_training_function, compile_testing_function
+from datasets import SharedDataset
+from model_functions import compile_batch_training_function, compile_testing_function
 from models import GeneralizedLinearModel, save
 
 
@@ -44,8 +43,8 @@ class SGD:
 
     def __init__(self,
                  model: GeneralizedLinearModel,
-                 training_set: Dataset,
-                 validation_set: Dataset,
+                 training_set: SharedDataset,
+                 validation_set: SharedDataset,
                  training_cost: T.TensorVariable,
                  validation_cost: T.TensorVariable,
                  learning_rate: float,
@@ -58,18 +57,13 @@ class SGD:
 
         self.model = model
 
-        self.training_set = training_set
-        self.validation_set = validation_set
-
-        self.batch_size = batch_size
-        self.num_training_batches = training_set.vectors.shape[0] // batch_size
-
+        self.num_training_batches = training_set.size // batch_size
         self.num_epochs = num_epochs
 
         self.save_path = save_path
 
-        self.train = compile_training_function(model, training_cost, learning_rate)
-        self.validate = compile_testing_function(model, validation_cost)
+        self.train = compile_batch_training_function(model, training_cost, learning_rate, training_set, batch_size)
+        self.validate = compile_testing_function(model, validation_cost, validation_set)
 
         self.validation_frequency = min(self.num_training_batches, patience // 2)
 
@@ -98,20 +92,15 @@ class SGD:
 
             epoch += 1
 
-            batches = batch_iterator(self.training_set, self.batch_size)
-
-            for x_train, y_train in batches:
+            for batch_index in range(self.num_training_batches):
 
                 iteration += 1
 
-                self.train(x_train, y_train)
+                self.train(batch_index)
 
                 if iteration % self.validation_frequency == 0:
 
-                    x_validate = self.validation_set.vectors
-                    y_validate = self.validation_set.labels
-
-                    validation_loss = self.validate(x_validate, y_validate)
+                    validation_loss = self.validate()
 
                     self.log_progress(epoch, iteration, validation_loss)
 
@@ -122,10 +111,10 @@ class SGD:
 
                         save(self.model, self.save_path)
 
-                if self.training_step_evaluation.stopping_criterion_met(iteration):
+                    if self.training_step_evaluation.stopping_criterion_met(iteration):
 
-                    print('Stopping criterion met.')
+                        print('Stopping criterion met.')
 
-                    return
+                        return
 
         print('Completed %i epochs without meeting stopping criterion.' % self.num_epochs)
