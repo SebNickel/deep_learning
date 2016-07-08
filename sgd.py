@@ -83,6 +83,21 @@ class SGD:
             )
         )
 
+    def evaluate_training_step(self,
+                               epoch,
+                               iteration):
+
+        validation_loss = self.validate()
+
+        self.log_progress(epoch, iteration, validation_loss)
+
+        if self.training_step_evaluation.is_new_best(validation_loss):
+
+            self.training_step_evaluation.update_patience(validation_loss, iteration)
+            self.training_step_evaluation.update_best_validation_loss(validation_loss)
+
+            save(self.model, self.save_path)
+
     def run(self):
 
         epoch = 0
@@ -100,16 +115,7 @@ class SGD:
 
                 if iteration % self.validation_frequency == 0:
 
-                    validation_loss = self.validate()
-
-                    self.log_progress(epoch, iteration, validation_loss)
-
-                    if self.training_step_evaluation.is_new_best(validation_loss):
-
-                        self.training_step_evaluation.update_patience(validation_loss, iteration)
-                        self.training_step_evaluation.update_best_validation_loss(validation_loss)
-
-                        save(self.model, self.save_path)
+                    self.evaluate_training_step(epoch, iteration)
 
                     if self.training_step_evaluation.stopping_criterion_met(iteration):
 

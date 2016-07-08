@@ -35,8 +35,7 @@ def compile_batch_training_function(model: GeneralizedLinearModel,
         givens={
             model.x: dataset.x[batch_index * batch_size: (batch_index + 1) * batch_size],
             model.y: dataset.y[batch_index * batch_size: (batch_index + 1) * batch_size]
-        },
-        allow_input_downcast=True
+        }
     )
 
 
@@ -50,8 +49,7 @@ def compile_testing_function(model: GeneralizedLinearModel,
         givens={
             model.x: dataset.x,
             model.y: dataset.y
-        },
-        allow_input_downcast=True
+        }
     )
 
 

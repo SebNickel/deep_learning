@@ -31,8 +31,6 @@ class SharedDataset:
 
         self.y = T.cast(y_as_floats, 'int32')
 
-        self.size = vectors.shape[0]
-
     @property
     def vectors(self):
 
@@ -42,6 +40,11 @@ class SharedDataset:
     def labels(self):
 
         return self.y.get_value(borrow=True)
+
+    @property
+    def size(self):
+
+        return self.vectors.shape[0]
 
 
 def save(dataset: SharedDataset,
