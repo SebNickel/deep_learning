@@ -2,9 +2,9 @@ from typing import Callable
 from theano import tensor as T
 from theano.compile.function_module import Function
 import timeit
-from mnist_data import load
 from models import GeneralizedLinearModel
 from sgd import SGD
+import datasets
 from datasets import SharedDataset
 from model_functions import compile_testing_function
 from cost import mean_negative_log_likelihood, mean_error
@@ -78,9 +78,13 @@ def test(model: GeneralizedLinearModel,
 
 if __name__ == '__main__':
 
-    mnist_data_path = 'mnist.pkl.gz'
+    training_set_path = 'mnist_train.pkl'
+    validation_set_path = 'mnist_validate.pkl'
+    test_set_path = 'mnist_test.pkl'
 
-    training_set, validation_set, test_set = load(mnist_data_path)
+    training_set = datasets.load(training_set_path)
+    validation_set = datasets.load(validation_set_path)
+    test_set = datasets.load(test_set_path)
 
     logistic_regression_model = train(
         training_set,
