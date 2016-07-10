@@ -1,43 +1,15 @@
 import timeit
-from typing import Callable, Tuple
-import numpy
-from numpy import ndarray
 from theano import tensor as T
-from theano.compile.function_module import Function
 import datasets
+import initialization
+import models
 from cost import mean_negative_log_likelihood, mean_zero_one_loss, compose
 from datasets import SharedDataset
-from training_step_evaluation import TrainingStepEvaluationStrategy, PatienceBasedEarlyStopping, NoEarlyStopping
 from model_functions import compile_testing_function
-import models
 from models import GeneralizedLinearModel
-from sgd import SGD
 from regularization import l2
-
-
-def zero_initialize_model(vector_dim: int,
-                          linear_output_dim: int,
-                          link_function: Function):
-
-    model = GeneralizedLinearModel(vector_dim, linear_output_dim, link_function)
-
-    model.zero_initialize_weights()
-    model.zero_initialize_bias()
-
-    return model
-
-
-def randomly_initialize_model(vector_dim: int,
-                              linear_output_dim: int,
-                              link_function: Function,
-                              distribution: Callable[[Tuple], ndarray]):
-
-    model = GeneralizedLinearModel(vector_dim, linear_output_dim, link_function)
-
-    model.randomly_initialize_weights(distribution)
-    model.randomly_initialize_bias(distribution)
-
-    return model
+from sgd import SGD
+from training_step_evaluation import TrainingStepEvaluationStrategy, PatienceBasedEarlyStopping
 
 
 def train(model: GeneralizedLinearModel,
@@ -85,15 +57,18 @@ def test(model: GeneralizedLinearModel,
 
 if __name__ == '__main__':
 
-    uniform_distribution = lambda shape: numpy.random.uniform(-0.5, 0.5, shape)
+    weight_initialization = initialization.uniform_initialization(0.5)
 
-    print('Randomly initializing model.')
+    bias_initialization = initialization.zero_initialization()
 
-    logistic_regression_model = randomly_initialize_model(
-        vector_dim=28 * 28,
+    print('Initializing model.')
+
+    logistic_regression_model = GeneralizedLinearModel(
+        input_dim=28 * 28,
         linear_output_dim=10,
         link_function=T.nnet.softmax,
-        distribution=uniform_distribution
+        weight_initialization=weight_initialization,
+        bias_initialization=bias_initialization
     )
 
     training_set_path = 'mnist_train.pkl'
@@ -149,4 +124,4 @@ if __name__ == '__main__':
                 test_set,
                 test_cost)
 
-    print('Mean zero-one loss: %f %%' % (loss * 100))
+    print('Mean zero-one loss: %f%%' % (loss * 100))

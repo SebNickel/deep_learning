@@ -1,32 +1,25 @@
-from typing import Tuple, Callable
+from typing import Callable, Tuple
 import numpy
 from numpy import ndarray
 import theano
-from theano import tensor as T
+
+def normalization_factor_for_tanh(num_units_in_previous_layer: int,
+                                  num_units_in_this_layer: int) -> float:
+
+    return numpy.sqrt(6.0 / (num_units_in_previous_layer + num_units_in_this_layer))
 
 
-def zero_initialize(shape: Tuple,
-                    name: str=None,
-                    dtype=theano.config.floatX) -> T.TensorVariable:
+def normalization_factor_for_sigmoid(num_units_in_previous_layer: int,
+                                     num_units_in_this_layer: int) -> float:
 
-    return theano.shared(
-        value=numpy.zeros(
-            shape=shape,
-            dtype=dtype
-        ),
-        name=name,
-        borrow=True
-    )
+    return 4 * normalization_factor_for_tanh(num_units_in_previous_layer, num_units_in_this_layer)
 
 
-def randomly_initialize(shape: Tuple,
-                        distribution: Callable[[Tuple], ndarray],
-                        name: str=None) -> T.TensorVariable:
+def zero_initialization() -> Callable[[Tuple], ndarray]:
 
-    random_array = distribution(shape)
+    return lambda shape: numpy.zeros(shape=shape, dtype=theano.config.floatX)
 
-    return theano.shared(
-        value=random_array,
-        name=name,
-        borrow=True
-    )
+
+def uniform_initialization(normalization_factor: float) -> Callable[[Tuple], ndarray]:
+
+    return lambda shape: numpy.random.uniform(-normalization_factor, normalization_factor, shape)
