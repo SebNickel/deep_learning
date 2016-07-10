@@ -8,10 +8,10 @@ from numpy import ndarray
 
 class GeneralizedLinearModel:
 
-    x = T.dmatrix('x')
     y = T.ivector('y')
 
     def __init__(self,
+                 x: T.TensorVariable,
                  input_dim: int,
                  linear_output_dim: int,
                  link_function: Function,
@@ -20,7 +20,6 @@ class GeneralizedLinearModel:
 
         self.input_dim = input_dim
         self.linear_output_dim = linear_output_dim
-        self.link_function = link_function
 
         W_shape = (input_dim, linear_output_dim)
         b_shape = (linear_output_dim,)
@@ -37,20 +36,13 @@ class GeneralizedLinearModel:
             borrow=True
         )
 
-    @property
-    def linear_projection(self):
+        self.x = x
 
-        return T.dot(self.x, self.W) + self.b
+        self.linear_projection = T.dot(self.x, self.W) + self.b
 
-    @property
-    def response(self):
+        self.response = link_function(self.linear_projection)
 
-        return self.link_function(self.linear_projection)
-
-    @property
-    def prediction(self):
-
-        return T.argmax(self.response, axis=1)
+        self.prediction = T.argmax(self.response, axis=1)
 
 
 def load(file_path: str) -> GeneralizedLinearModel:

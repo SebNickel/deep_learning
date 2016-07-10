@@ -3,16 +3,16 @@ import numpy
 from numpy import ndarray
 import theano
 
-def normalization_factor_for_tanh(num_units_in_previous_layer: int,
-                                  num_units_in_this_layer: int) -> float:
+def normalization_factor_for_tanh(input_dim: int,
+                                  linear_output_dim: int) -> float:
 
-    return numpy.sqrt(6.0 / (num_units_in_previous_layer + num_units_in_this_layer))
+    return numpy.sqrt(6.0 / (input_dim + linear_output_dim))
 
 
-def normalization_factor_for_sigmoid(num_units_in_previous_layer: int,
-                                     num_units_in_this_layer: int) -> float:
+def normalization_factor_for_sigmoid(input_dim: int,
+                                     linear_output_dim: int) -> float:
 
-    return 4 * normalization_factor_for_tanh(num_units_in_previous_layer, num_units_in_this_layer)
+    return 4 * normalization_factor_for_tanh(input_dim, linear_output_dim)
 
 
 def zero_initialization() -> Callable[[Tuple], ndarray]:

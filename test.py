@@ -64,6 +64,7 @@ if __name__ == '__main__':
     print('Initializing model.')
 
     logistic_regression_model = GeneralizedLinearModel(
+        x=T.dmatrix('x'),
         input_dim=28 * 28,
         linear_output_dim=10,
         link_function=T.nnet.softmax,
