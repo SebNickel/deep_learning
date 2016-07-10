@@ -3,14 +3,14 @@ from theano import tensor as T
 from models import GeneralizedLinearModel
 
 
-def zero_one_loss(model: GeneralizedLinearModel) -> T.TensorVariable:
+def zero_one_losses(model: GeneralizedLinearModel) -> T.TensorVariable:
 
     return T.neq(model.prediction, model.y)
 
 
 def mean_zero_one_loss(model: GeneralizedLinearModel) -> T.TensorVariable:
 
-    return T.mean(zero_one_loss(model))
+    return T.mean(zero_one_losses(model))
 
 
 def individual_log_likelihoods(model: GeneralizedLinearModel) -> T.TensorVariable:
@@ -33,7 +33,7 @@ def mean_negative_log_likelihood(model: GeneralizedLinearModel) -> T.TensorVaria
 def composition(model: GeneralizedLinearModel,
                 cost_function: Callable[[GeneralizedLinearModel], T.TensorVariable],
                 regularization_weights: List[float],
-                regularization_functions: List[Callable[[GeneralizedLinearModel], T.TensorVariable]]) -> Callable[[GeneralizedLinearModel], T.TensorVariable]:
+                regularization_functions: List[Callable[[GeneralizedLinearModel], T.TensorVariable]]) -> T.TensorVariable:
 
     cost = cost_function(model)
 

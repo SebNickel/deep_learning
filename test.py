@@ -9,7 +9,8 @@ from cost import mean_negative_log_likelihood, mean_zero_one_loss, compose
 from datasets import SharedDataset
 from training_step_evaluation import TrainingStepEvaluationStrategy, PatienceBasedEarlyStopping, NoEarlyStopping
 from model_functions import compile_testing_function
-from models import GeneralizedLinearModel, load
+import models
+from models import GeneralizedLinearModel
 from sgd import SGD
 from regularization import l2
 
@@ -86,7 +87,7 @@ if __name__ == '__main__':
 
     uniform_distribution = lambda shape: numpy.random.uniform(-0.5, 0.5, shape)
 
-    print('Rendomly initializing model.')
+    print('Randomly initializing model.')
 
     logistic_regression_model = randomly_initialize_model(
         vector_dim=28 * 28,
@@ -140,7 +141,7 @@ if __name__ == '__main__':
 
     print('Running test.')
 
-    trained_model = load(save_path)
+    trained_model = models.load(save_path)
 
     test_cost = mean_zero_one_loss(trained_model)
 

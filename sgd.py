@@ -10,7 +10,7 @@ class SGD:
     def __init__(self,
                  model: GeneralizedLinearModel,
                  training_set: SharedDataset,
-                 training_cost: T.TensorVariable,
+                 cost: T.TensorVariable,
                  learning_rate: float,
                  batch_size: int,
                  num_epochs: int,
@@ -19,7 +19,13 @@ class SGD:
         self.num_training_batches = training_set.size // batch_size
         self.num_epochs = num_epochs
 
-        self.train = compile_batch_training_function(model, training_cost, learning_rate, training_set, batch_size)
+        self.train = compile_batch_training_function(
+            model,
+            cost,
+            learning_rate,
+            training_set,
+            batch_size
+        )
 
         self.evaluation_strategy = evaluation_strategy
 
