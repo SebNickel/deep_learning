@@ -20,6 +20,7 @@ class SharedDataset:
             borrow=True
         )
 
+        # Intermittent conversion to float for GPU-compatibility.
         y_as_floats = theano.shared(
             value=numpy.asarray(
                 labels,
@@ -59,6 +60,4 @@ def load(file_path: str) -> SharedDataset:
 
     with open(file_path, 'rb') as file:
 
-        dataset = pickle.load(file)
-
-    return dataset
+        return pickle.load(file)

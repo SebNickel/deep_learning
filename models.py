@@ -1,8 +1,9 @@
+from typing import Callable, Tuple, List
 import pickle
 from theano import tensor as T
 from theano.compile.function_module import Function
-
-from initialization import zero_initialize
+from numpy import ndarray
+from initialization import zero_initialize, randomly_initialize
 
 
 class GeneralizedLinearModel:
@@ -48,10 +49,20 @@ class GeneralizedLinearModel:
 
         self.b = zero_initialize(self.b_shape, 'b')
 
+    def randomly_initialize_weights(self, distribution: Callable[[Tuple], ndarray]):
+
+        self.W = randomly_initialize(self.W_shape, distribution, 'W')
+
+    def randomly_initialize_bias(self, distribution: Callable[[Tuple], ndarray]):
+
+        self.b = randomly_initialize(self.b_shape, distribution, 'b')
+
 
 def load(file_path: str) -> GeneralizedLinearModel:
 
-    return pickle.load(file_path, 'rb')
+    with open(file_path, 'rb') as file:
+
+        return pickle.load(file)
 
 
 def save(model: GeneralizedLinearModel,

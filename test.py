@@ -1,68 +1,74 @@
-from typing import Callable
+import timeit
+from typing import Callable, Tuple
+import numpy
+from numpy import ndarray
 from theano import tensor as T
 from theano.compile.function_module import Function
-import timeit
-from models import GeneralizedLinearModel
-from sgd import SGD
 import datasets
+from cost import mean_negative_log_likelihood, mean_zero_one_loss, compose
 from datasets import SharedDataset
+from training_step_evaluation import TrainingStepEvaluationStrategy, PatienceBasedEarlyStopping, NoEarlyStopping
 from model_functions import compile_testing_function
-from cost import mean_negative_log_likelihood, mean_error
+from models import GeneralizedLinearModel, load
+from sgd import SGD
+from regularization import l2
 
 
-def train(training_set: SharedDataset,
-          validation_set: SharedDataset,
-          vector_dim: int,
-          num_classes: int,
-          link_function: Function,
-          training_cost_function: Callable[[GeneralizedLinearModel], T.TensorVariable],
-          validation_cost_function: Callable[[GeneralizedLinearModel], T.TensorVariable],
-          learning_rate: float,
-          batch_size: int,
-          num_epochs: int,
-          patience: int,
-          improvement_threshold: float,
-          patience_increase: float,
-          save_path: str) -> GeneralizedLinearModel:
+def zero_initialize_model(vector_dim: int,
+                          linear_output_dim: int,
+                          link_function: Function):
 
-    print('Initialising model.')
-
-    model = GeneralizedLinearModel(vector_dim, num_classes, link_function)
+    model = GeneralizedLinearModel(vector_dim, linear_output_dim, link_function)
 
     model.zero_initialize_weights()
     model.zero_initialize_bias()
 
-    training_cost = training_cost_function(model)
-    validation_cost = validation_cost_function(model)
+    return model
+
+
+def randomly_initialize_model(vector_dim: int,
+                              linear_output_dim: int,
+                              link_function: Function,
+                              distribution: Callable[[Tuple], ndarray]):
+
+    model = GeneralizedLinearModel(vector_dim, linear_output_dim, link_function)
+
+    model.randomly_initialize_weights(distribution)
+    model.randomly_initialize_bias(distribution)
+
+    return model
+
+
+def train(model: GeneralizedLinearModel,
+          training_set: SharedDataset,
+          cost: T.TensorVariable,
+          learning_rate: float,
+          batch_size: int,
+          num_epochs: int,
+          evaluation_strategy: TrainingStepEvaluationStrategy,
+          save_path: str):
 
     print('Instantiating SGD class.')
 
     sgd = SGD(model,
               training_set,
-              validation_set,
-              training_cost,
-              validation_cost,
+              cost,
               learning_rate,
               batch_size,
               num_epochs,
-              patience,
-              improvement_threshold,
-              patience_increase,
-              save_path)
+              evaluation_strategy)
 
     start_time = timeit.default_timer()
 
     print('Start training.')
 
-    sgd.run()
+    sgd.run(save_path)
 
     end_time = timeit.default_timer()
 
     duration = end_time - start_time
 
     print('Finished training after %f seconds.' % duration)
-
-    return sgd.model
 
 
 def test(model: GeneralizedLinearModel,
@@ -78,37 +84,68 @@ def test(model: GeneralizedLinearModel,
 
 if __name__ == '__main__':
 
+    uniform_distribution = lambda shape: numpy.random.uniform(-0.5, 0.5, shape)
+
+    print('Rendomly initializing model.')
+
+    logistic_regression_model = randomly_initialize_model(
+        vector_dim=28 * 28,
+        linear_output_dim=10,
+        link_function=T.nnet.softmax,
+        distribution=uniform_distribution
+    )
+
     training_set_path = 'mnist_train.pkl'
     validation_set_path = 'mnist_validate.pkl'
     test_set_path = 'mnist_test.pkl'
+
+    save_path = 'mnist_model.pkl'
 
     training_set = datasets.load(training_set_path)
     validation_set = datasets.load(validation_set_path)
     test_set = datasets.load(test_set_path)
 
-    logistic_regression_model = train(
-        training_set,
+    training_cost_function = compose(
+        cost_function=mean_negative_log_likelihood,
+        regularization_weights=[0.01],
+        regularization_functions=[l2]
+    )
+
+    training_cost = training_cost_function(logistic_regression_model)
+
+    validation_cost_function = mean_zero_one_loss
+
+    validation_cost = validation_cost_function(logistic_regression_model)
+
+    print('Setting up early stopping strategy.')
+
+    evaluation_strategy = PatienceBasedEarlyStopping(
+        logistic_regression_model,
         validation_set,
-        vector_dim=28 * 28,
-        num_classes=10,
-        link_function=T.nnet.softmax,
-        training_cost_function=mean_negative_log_likelihood,
-        validation_cost_function=mean_error,
-        learning_rate=0.13,
-        batch_size=600,
-        num_epochs=1000,
-        patience=5000,
+        validation_cost,
+        patience=10000,
         improvement_threshold=0.995,
-        patience_increase=2,
-        save_path='mnist_model.pkl'
+        patience_increase=2
+    )
+
+    train(logistic_regression_model,
+          training_set,
+          training_cost,
+          learning_rate=0.13,
+          batch_size=600,
+          num_epochs=150,
+          evaluation_strategy=evaluation_strategy,
+          save_path=save_path
     )
 
     print('Running test.')
 
-    test_cost = mean_error(logistic_regression_model)
+    trained_model = load(save_path)
 
-    loss = test(logistic_regression_model,
+    test_cost = mean_zero_one_loss(trained_model)
+
+    loss = test(trained_model,
                 test_set,
                 test_cost)
 
-    print('Loss: %f %%' % (loss * 100))
+    print('Mean zero-one loss: %f %%' % (loss * 100))
