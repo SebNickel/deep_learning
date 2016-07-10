@@ -45,8 +45,8 @@ def train(model: GeneralizedLinearModel,
 
 
 def test(model: GeneralizedLinearModel,
-         test_set: SharedDataset,
-         cost: T.TensorVariable) -> float:
+         cost: T.TensorVariable,
+         test_set: SharedDataset) -> float:
 
     test = compile_testing_function(model, cost, test_set)
 
@@ -64,7 +64,6 @@ if __name__ == '__main__':
     print('Initializing model.')
 
     logistic_regression_model = GeneralizedLinearModel(
-        x=T.dmatrix('x'),
         input_dim=28 * 28,
         linear_output_dim=10,
         link_function=T.nnet.softmax,
@@ -122,7 +121,7 @@ if __name__ == '__main__':
     test_cost = mean_zero_one_loss(trained_model)
 
     loss = test(trained_model,
-                test_set,
-                test_cost)
+                test_cost,
+                test_set)
 
     print('Mean zero-one loss: %f%%' % (loss * 100))
