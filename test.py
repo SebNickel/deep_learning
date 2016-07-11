@@ -6,13 +6,13 @@ import models
 from cost import mean_negative_log_likelihood, mean_zero_one_loss, compose
 from datasets import SharedDataset
 from model_functions import compile_testing_function
-from models import GeneralizedLinearModel
+from models import Model, GeneralizedLinearModel, MultiLayerPerceptron
 from regularization import l2
-from sgd import SGD
+from stochastic_gradient_descent import StochasticGradientDescent
 from training_step_evaluation import TrainingStepEvaluationStrategy, PatienceBasedEarlyStopping
 
 
-def train(model: GeneralizedLinearModel,
+def train(model: Model,
           training_set: SharedDataset,
           cost: T.TensorVariable,
           learning_rate: float,
@@ -23,13 +23,13 @@ def train(model: GeneralizedLinearModel,
 
     print('Instantiating SGD class.')
 
-    sgd = SGD(model,
-              training_set,
-              cost,
-              learning_rate,
-              batch_size,
-              num_epochs,
-              evaluation_strategy)
+    sgd = StochasticGradientDescent(model,
+                                    training_set,
+                                    cost,
+                                    learning_rate,
+                                    batch_size,
+                                    num_epochs,
+                                    evaluation_strategy)
 
     start_time = timeit.default_timer()
 
@@ -44,7 +44,7 @@ def train(model: GeneralizedLinearModel,
     print('Finished training after %f seconds.' % duration)
 
 
-def test(model: GeneralizedLinearModel,
+def test(model: Model,
          cost: T.TensorVariable,
          test_set: SharedDataset) -> float:
 
@@ -57,19 +57,30 @@ def test(model: GeneralizedLinearModel,
 
 if __name__ == '__main__':
 
-    weight_initialization = initialization.uniform_initialization(0.5)
+    input_dim = 28 * 28
+    num_hidden_units = 500
 
-    bias_initialization = initialization.zero_initialization()
+    normalization_factor = initialization.normalization_factor_for_tanh(input_dim, num_hidden_units)
 
     print('Initializing model.')
 
-    logistic_regression_model = GeneralizedLinearModel(
+    hidden_layer = GeneralizedLinearModel(
         input_dim=28 * 28,
+        linear_output_dim=num_hidden_units,
+        link_function=T.tanh,
+        weight_initialization=initialization.uniform_initialization(normalization_factor),
+        bias_initialization=initialization.zero_initialization()
+    )
+
+    logistic_regression_layer = GeneralizedLinearModel(
+        input_dim=num_hidden_units,
         linear_output_dim=10,
         link_function=T.nnet.softmax,
-        weight_initialization=weight_initialization,
-        bias_initialization=bias_initialization
+        weight_initialization=initialization.zero_initialization(),
+        bias_initialization=initialization.zero_initialization()
     )
+
+    multi_layer_percetpron = MultiLayerPerceptron(hidden_layer, logistic_regression_layer)
 
     training_set_path = 'mnist_train.pkl'
     validation_set_path = 'mnist_validate.pkl'
@@ -83,20 +94,20 @@ if __name__ == '__main__':
 
     training_cost_function = compose(
         cost_function=mean_negative_log_likelihood,
-        regularization_weights=[0.01],
+        regularization_weights=[0.0001],
         regularization_functions=[l2]
     )
 
-    training_cost = training_cost_function(logistic_regression_model)
+    training_cost = training_cost_function(multi_layer_percetpron)
 
     validation_cost_function = mean_zero_one_loss
 
-    validation_cost = validation_cost_function(logistic_regression_model)
+    validation_cost = validation_cost_function(multi_layer_percetpron)
 
     print('Setting up early stopping strategy.')
 
     evaluation_strategy = PatienceBasedEarlyStopping(
-        logistic_regression_model,
+        multi_layer_percetpron,
         validation_set,
         validation_cost,
         patience=10000,
@@ -104,12 +115,12 @@ if __name__ == '__main__':
         patience_increase=2
     )
 
-    train(logistic_regression_model,
+    train(multi_layer_percetpron,
           training_set,
           training_cost,
-          learning_rate=0.13,
-          batch_size=600,
-          num_epochs=150,
+          learning_rate=0.01,
+          batch_size=20,
+          num_epochs=1000,
           evaluation_strategy=evaluation_strategy,
           save_path=save_path
     )

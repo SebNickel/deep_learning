@@ -2,13 +2,13 @@ import numpy
 from theano import tensor as T
 from datasets import SharedDataset
 from model_functions import compile_batch_training_function
-from models import GeneralizedLinearModel
+from models import Model
 from training_step_evaluation import TrainingStepEvaluationStrategy
 
-class SGD:
+class StochasticGradientDescent:
 
     def __init__(self,
-                 model: GeneralizedLinearModel,
+                 model: Model,
                  training_set: SharedDataset,
                  cost: T.TensorVariable,
                  learning_rate: float,

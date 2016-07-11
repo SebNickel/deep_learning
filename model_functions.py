@@ -1,11 +1,11 @@
 import theano
 from theano import tensor as T
 from theano.compile.function_module import Function
-from models import GeneralizedLinearModel
+from models import Model
 from datasets import SharedDataset
 
 
-def compile_batch_training_function(model: GeneralizedLinearModel,
+def compile_batch_training_function(model: Model,
                                     cost: T.TensorVariable,
                                     learning_rate: float,
                                     dataset: SharedDataset,
@@ -13,19 +13,14 @@ def compile_batch_training_function(model: GeneralizedLinearModel,
 
     batch_index = T.lscalar('batch_index')
 
-    grad_W = T.grad(
-        cost=cost,
-        wrt=model.W
-    )
-
-    grad_b = T.grad(
-        cost=cost,
-        wrt=model.b
-    )
+    gradients = [
+        T.grad(cost=cost, wrt=param)
+        for param in model.params
+    ]
 
     updates = [
-        (model.W, model.W - learning_rate * grad_W),
-        (model.b, model.b - learning_rate * grad_b)
+        (param, param - learning_rate * gradient)
+        for param, gradient in zip(model.params, gradients)
     ]
 
     return theano.function(
@@ -39,7 +34,7 @@ def compile_batch_training_function(model: GeneralizedLinearModel,
     )
 
 
-def compile_testing_function(model: GeneralizedLinearModel,
+def compile_testing_function(model: Model,
                              cost: T.TensorVariable,
                              dataset: SharedDataset) -> Function:
 
@@ -53,7 +48,7 @@ def compile_testing_function(model: GeneralizedLinearModel,
     )
 
 
-def compile_response_function(model: GeneralizedLinearModel) -> Function:
+def compile_response_function(model: Model) -> Function:
 
     return theano.function(
         inputs=[model.x],
@@ -61,7 +56,7 @@ def compile_response_function(model: GeneralizedLinearModel) -> Function:
     )
 
 
-def compile_prediction_function(model: GeneralizedLinearModel) -> Function:
+def compile_prediction_function(model: Model) -> Function:
 
     return theano.function(
         inputs=[model.x],

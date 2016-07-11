@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 import numpy
 from theano import tensor as T
 import models
-from models import GeneralizedLinearModel
+from models import Model
 from datasets import SharedDataset
 from model_functions import compile_testing_function
 
@@ -10,7 +10,7 @@ from model_functions import compile_testing_function
 class TrainingStepEvaluationStrategy(metaclass=ABCMeta):
 
     def __init__(self,
-                 model: GeneralizedLinearModel):
+                 model: Model):
 
         self.model = model
 
@@ -74,7 +74,7 @@ class NoEarlyStopping(TrainingStepEvaluationStrategy):
 class PatienceBasedEarlyStopping(TrainingStepEvaluationStrategy):
 
     def __init__(self,
-                 model: GeneralizedLinearModel,
+                 model: Model,
                  validation_set: SharedDataset,
                  validation_cost: T.TensorVariable,
                  patience: int,
