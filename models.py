@@ -1,17 +1,17 @@
-from typing import Callable, Tuple, List
-from abc import ABCMeta, abstractproperty
 import pickle
+from abc import ABCMeta, abstractproperty
+from typing import Callable, Tuple, List
 import theano
+from numpy import ndarray
 from theano import tensor as T
 from theano.compile.function_module import Function
-from numpy import ndarray
 from utils import flatten
 
 
 class Model(metaclass=ABCMeta):
 
-    x = T.dmatrix('x')
-    y = T.ivector('y')
+    x = T.TensorVariable
+    y = T.TensorVariable
 
     @abstractproperty
     def weights(self) -> List[T.TensorVariable]:
@@ -24,36 +24,58 @@ class Model(metaclass=ABCMeta):
         pass
 
     @abstractproperty
-    def linear_projection(self) -> T.TensorVariable:
+    def output(self) -> T.TensorVariable:
 
         pass
 
-    @abstractproperty
-    def response(self) -> T.TensorVariable:
 
-        pass
+class Classifier(Model, metaclass=ABCMeta):
 
-    @abstractproperty
+    @property
     def prediction(self) -> T.TensorVariable:
 
-        pass
+        return T.argmax(self.output, axis=1)
 
 
-class GeneralizedLinearModel(Model):
+class ActivationLayer(Model):
+
+    def __init__(self,
+                 activation_function: Function):
+
+        self.activation_function = activation_function
+
+    @property
+    def weights(self) -> List[T.TensorVariable]:
+
+        return []
+
+    @property
+    def params(self) -> List[T.TensorVariable]:
+
+        return []
+
+    @property
+    def output(self) -> T.TensorVariable:
+
+        return self.activation_function(self.x)
+
+
+class LinearModel(Model):
+
+    x = T.dmatrix('x')
+    y = T.ivector('y')
 
     def __init__(self,
                  input_dim: int,
-                 linear_output_dim: int,
-                 link_function: Function,
+                 output_dim: int,
                  weight_initialization: Callable[[Tuple], ndarray],
                  bias_initialization: Callable[[Tuple], ndarray]):
 
         self.input_dim = input_dim
-        self.linear_output_dim = linear_output_dim
-        self.link_function = link_function
+        self.output_dim = output_dim
 
-        W_shape = (input_dim, linear_output_dim)
-        b_shape = (linear_output_dim,)
+        W_shape = (input_dim, output_dim)
+        b_shape = (output_dim,)
 
         self.W = theano.shared(
             value=weight_initialization(W_shape),
@@ -78,42 +100,73 @@ class GeneralizedLinearModel(Model):
         return [self.W, self.b]
 
     @property
-    def linear_projection(self) -> T.TensorVariable:
+    def output(self) -> T.TensorVariable:
 
         return T.dot(self.x, self.W) + self.b
 
+
+class GeneralizedLinearModel(Classifier):
+
+    x = T.dmatrix('x')
+    y = T.ivector('y')
+
+    def wire_up(self):
+
+        self.linear_layer.x = self.x
+        self.activation_layer.x = self.linear_layer.output
+
+    def __init__(self,
+                 linear_layer: LinearModel,
+                 activation_layer: ActivationLayer):
+
+        self.linear_layer = linear_layer
+        self.activation_layer = activation_layer
+
+        self.wire_up()
+
     @property
-    def response(self) -> T.TensorVariable:
+    def weights(self) -> List[T.TensorVariable]:
 
-        return self.link_function(self.linear_projection)
+        return self.linear_layer.weights
 
     @property
-    def prediction(self) -> T.TensorVariable:
+    def params(self) -> List[T.TensorVariable]:
 
-        return T.argmax(self.response, axis=1)
+        return self.linear_layer.params
+
+    @property
+    def output(self) -> T.TensorVariable:
+
+        return self.activation_layer.output
 
 
-class MultiLayerPerceptron(Model):
+class MultiLayerPerceptron(Classifier):
+
+    x = T.dmatrix('x')
+    y = T.ivector('y')
+
+    def wire_up(self):
+
+        self.layers[0].x = self.x
+        self.layers[0].wire_up()
+
+        for index in range(1, len(self.layers)):
+
+            self.layers[index].x = self.layers[index - 1].output
+            self.layers[index].wire_up()
 
     def __init__(self, *layers: List[GeneralizedLinearModel]):
 
         self.layers = layers
 
-        self.input_layer = self.layers[0]
-        self.hidden_layers = self.layers[1:-1]
-        self.output_layer = self.layers[-1]
-
-        self.x = self.input_layer.x
-        self.y = self.output_layer.y
-
-        for index in range(1, len(self.layers)):
-
-            self.layers[index].x = self.layers[index - 1].response
+        self.wire_up()
 
     @property
     def weights(self) -> List[T.TensorVariable]:
 
-        return [layer.W for layer in self.layers]
+        layer_weights = [layer.weights for layer in self.layers]
+
+        return flatten(layer_weights)
 
     @property
     def params(self) -> List[T.TensorVariable]:
@@ -123,19 +176,9 @@ class MultiLayerPerceptron(Model):
         return flatten(layer_params)
 
     @property
-    def linear_projection(self) -> T.TensorVariable:
+    def output(self) -> T.TensorVariable:
 
-        return self.output_layer.linear_projection
-
-    @property
-    def response(self) -> T.TensorVariable:
-
-        return self.output_layer.response
-
-    @property
-    def prediction(self) -> T.TensorVariable:
-
-        return self.output_layer.prediction
+        return self.layers[-1].activation_layer.output
 
 
 def load(file_path: str) -> Model:

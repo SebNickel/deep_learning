@@ -1,21 +1,21 @@
 from typing import Callable, List
 from theano import tensor as T
-from models import Model
+from models import Model, Classifier
 
 
-def zero_one_losses(model: Model) -> T.TensorVariable:
+def zero_one_losses(classifier: Classifier) -> T.TensorVariable:
 
-    return T.neq(model.prediction, model.y)
+    return T.neq(classifier.prediction, classifier.y)
 
 
-def mean_zero_one_loss(model: Model) -> T.TensorVariable:
+def mean_zero_one_loss(classifier: Classifier) -> T.TensorVariable:
 
-    return T.mean(zero_one_losses(model))
+    return T.mean(zero_one_losses(classifier))
 
 
 def individual_log_likelihoods(model: Model) -> T.TensorVariable:
 
-    log_probability_matrix = T.log(model.response)
+    log_probability_matrix = T.log(model.output)
 
     return log_probability_matrix[T.arange(model.y.shape[0]), model.y]
 

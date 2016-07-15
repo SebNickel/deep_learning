@@ -1,7 +1,7 @@
 import theano
 from theano import tensor as T
 from theano.compile.function_module import Function
-from models import Model
+from models import Model, Classifier
 from datasets import SharedDataset
 
 
@@ -52,13 +52,13 @@ def compile_response_function(model: Model) -> Function:
 
     return theano.function(
         inputs=[model.x],
-        outputs=model.response
+        outputs=model.output
     )
 
 
-def compile_prediction_function(model: Model) -> Function:
+def compile_prediction_function(classifier: Classifier) -> Function:
 
     return theano.function(
-        inputs=[model.x],
-        outputs=model.prediction
+        inputs=[classifier.x],
+        outputs=classifier.prediction
     )

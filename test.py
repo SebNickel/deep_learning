@@ -6,8 +6,8 @@ import models
 from cost import mean_negative_log_likelihood, mean_zero_one_loss, compose
 from datasets import SharedDataset
 from model_functions import compile_testing_function
-from models import Model, GeneralizedLinearModel, MultiLayerPerceptron
-from regularization import l2
+from models import Model, Classifier, LinearModel, ActivationLayer, GeneralizedLinearModel, MultiLayerPerceptron
+from regularization import l2_squared
 from stochastic_gradient_descent import StochasticGradientDescent
 from training_step_evaluation import TrainingStepEvaluationStrategy, PatienceBasedEarlyStopping
 
@@ -64,23 +64,35 @@ if __name__ == '__main__':
 
     print('Initializing model.')
 
-    hidden_layer = GeneralizedLinearModel(
+    hidden_linear_layer = LinearModel(
         input_dim=28 * 28,
-        linear_output_dim=num_hidden_units,
-        link_function=T.tanh,
+        output_dim=num_hidden_units,
         weight_initialization=initialization.uniform_initialization(normalization_factor),
         bias_initialization=initialization.zero_initialization()
     )
 
-    logistic_regression_layer = GeneralizedLinearModel(
+    hidden_activation_layer = ActivationLayer(T.tanh)
+
+    hidden_layer = GeneralizedLinearModel(
+        hidden_linear_layer,
+        hidden_activation_layer
+    )
+
+    visible_linear_layer = LinearModel(
         input_dim=num_hidden_units,
-        linear_output_dim=10,
-        link_function=T.nnet.softmax,
+        output_dim=10,
         weight_initialization=initialization.zero_initialization(),
         bias_initialization=initialization.zero_initialization()
     )
 
-    multi_layer_percetpron = MultiLayerPerceptron(hidden_layer, logistic_regression_layer)
+    visible_activation_layer = ActivationLayer(T.nnet.softmax)
+
+    logistic_regression_layer = GeneralizedLinearModel(
+        visible_linear_layer,
+        visible_activation_layer
+    )
+
+    multi_layer_perceptron = MultiLayerPerceptron(hidden_layer, logistic_regression_layer)
 
     training_set_path = 'mnist_train.pkl'
     validation_set_path = 'mnist_validate.pkl'
@@ -95,19 +107,19 @@ if __name__ == '__main__':
     training_cost_function = compose(
         cost_function=mean_negative_log_likelihood,
         regularization_weights=[0.0001],
-        regularization_functions=[l2]
+        regularization_functions=[l2_squared]
     )
 
-    training_cost = training_cost_function(multi_layer_percetpron)
+    training_cost = training_cost_function(multi_layer_perceptron)
 
     validation_cost_function = mean_zero_one_loss
 
-    validation_cost = validation_cost_function(multi_layer_percetpron)
+    validation_cost = validation_cost_function(multi_layer_perceptron)
 
     print('Setting up early stopping strategy.')
 
     evaluation_strategy = PatienceBasedEarlyStopping(
-        multi_layer_percetpron,
+        multi_layer_perceptron,
         validation_set,
         validation_cost,
         patience=10000,
@@ -115,7 +127,7 @@ if __name__ == '__main__':
         patience_increase=2
     )
 
-    train(multi_layer_percetpron,
+    train(multi_layer_perceptron,
           training_set,
           training_cost,
           learning_rate=0.01,
@@ -123,7 +135,7 @@ if __name__ == '__main__':
           num_epochs=1000,
           evaluation_strategy=evaluation_strategy,
           save_path=save_path
-    )
+          )
 
     print('Running test.')
 
