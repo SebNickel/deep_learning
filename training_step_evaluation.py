@@ -2,9 +2,9 @@ from abc import ABCMeta, abstractmethod
 import numpy
 from theano import tensor as T
 import models
-from models import Model
+from models import Model, Classifier
 from datasets import SharedDataset
-from model_functions import compile_testing_function
+from model_functions import compile_batch_testing_function
 
 
 class TrainingStepEvaluationStrategy(metaclass=ABCMeta):
@@ -74,20 +74,22 @@ class NoEarlyStopping(TrainingStepEvaluationStrategy):
 class PatienceBasedEarlyStopping(TrainingStepEvaluationStrategy):
 
     def __init__(self,
-                 model: Model,
+                 classifier: Classifier,
                  validation_set: SharedDataset,
                  validation_cost: T.TensorVariable,
+                 batch_size: int,
                  patience: int,
                  improvement_threshold: float,
                  patience_increase: float):
 
-        super().__init__(model)
+        super().__init__(classifier)
 
         self.patience = patience
         self.improvement_threshold = improvement_threshold
         self.patience_increase = patience_increase
 
-        self.validate = compile_testing_function(model, validation_cost, validation_set)
+        self.validate = compile_batch_testing_function(classifier, validation_cost, validation_set, batch_size)
+        self.num_validation_batches = validation_set.size // batch_size
 
     def update_patience(self,
                         validation_loss: float,
@@ -122,14 +124,16 @@ class PatienceBasedEarlyStopping(TrainingStepEvaluationStrategy):
               loss: float,
               save_path: str) -> bool:
 
-        validation_loss = self.validate()
+        validation_losses = [self.validate(index) for index in range(self.num_validation_batches)]
 
-        if self.is_new_best(validation_loss):
+        mean_validation_loss = numpy.mean(validation_losses)
+
+        if self.is_new_best(mean_validation_loss):
 
             self.save_model(save_path)
-            self.update_patience(validation_loss, iteration)
-            self.update_best_loss(validation_loss)
+            self.update_patience(mean_validation_loss, iteration)
+            self.update_best_loss(mean_validation_loss)
 
-        self.log_progress(epoch, iteration, validation_loss)
+        self.log_progress(epoch, iteration, mean_validation_loss)
 
         return self.stopping_criterion_met(iteration)

@@ -2,13 +2,13 @@ import numpy
 from theano import tensor as T
 from datasets import SharedDataset
 from model_functions import compile_batch_training_function
-from models import Model
+from models import Classifier
 from training_step_evaluation import TrainingStepEvaluationStrategy
 
 class StochasticGradientDescent:
 
     def __init__(self,
-                 model: Model,
+                 classifier: Classifier,
                  training_set: SharedDataset,
                  cost: T.TensorVariable,
                  learning_rate: float,
@@ -20,7 +20,7 @@ class StochasticGradientDescent:
         self.num_epochs = num_epochs
 
         self.train = compile_batch_training_function(
-            model,
+            classifier,
             cost,
             learning_rate,
             training_set,
@@ -45,6 +45,8 @@ class StochasticGradientDescent:
                 iteration += 1
 
                 current_loss = self.train(batch_index)
+
+                print('Iteration %i, loss %f%%' % (iteration, current_loss * 100))
 
             stopping_criterion_met = self.evaluation_strategy.apply(
                 epoch,

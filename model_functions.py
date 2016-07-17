@@ -16,7 +16,7 @@ def compile_batch_training_function(model: Model,
     gradients = [
         T.grad(cost=cost, wrt=param)
         for param in model.params
-    ]
+        ]
 
     updates = [
         (param, param - learning_rate * gradient)
@@ -28,8 +28,8 @@ def compile_batch_training_function(model: Model,
         outputs=cost,
         updates=updates,
         givens={
-            model.x: dataset.x[batch_index * batch_size: (batch_index + 1) * batch_size],
-            model.y: dataset.y[batch_index * batch_size: (batch_index + 1) * batch_size]
+            model.input: dataset.x[batch_index * batch_size: (batch_index + 1) * batch_size],
+            model.labels: dataset.y[batch_index * batch_size: (batch_index + 1) * batch_size]
         }
     )
 
@@ -42,8 +42,25 @@ def compile_testing_function(model: Model,
         inputs=[],
         outputs=cost,
         givens={
-            model.x: dataset.x,
-            model.y: dataset.y
+            model.input: dataset.x,
+            model.labels: dataset.y
+        }
+    )
+
+
+def compile_batch_testing_function(model: Model,
+                                   cost: T.TensorVariable,
+                                   dataset: SharedDataset,
+                                   batch_size: int) -> Function:
+
+    batch_index = T.lscalar('batch_index')
+
+    return theano.function(
+        inputs=[batch_index],
+        outputs=cost,
+        givens={
+            model.input: dataset.x[batch_index * batch_size: (batch_index + 1) * batch_size],
+            model.labels: dataset.y[batch_index * batch_size: (batch_index + 1) * batch_size]
         }
     )
 
@@ -51,7 +68,7 @@ def compile_testing_function(model: Model,
 def compile_response_function(model: Model) -> Function:
 
     return theano.function(
-        inputs=[model.x],
+        inputs=[model.input],
         outputs=model.output
     )
 
@@ -59,6 +76,6 @@ def compile_response_function(model: Model) -> Function:
 def compile_prediction_function(classifier: Classifier) -> Function:
 
     return theano.function(
-        inputs=[classifier.x],
+        inputs=[classifier.input],
         outputs=classifier.prediction
     )

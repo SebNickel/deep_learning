@@ -5,7 +5,7 @@ from models import Model, Classifier
 
 def zero_one_losses(classifier: Classifier) -> T.TensorVariable:
 
-    return T.neq(classifier.prediction, classifier.y)
+    return T.neq(classifier.prediction, classifier.labels)
 
 
 def mean_zero_one_loss(classifier: Classifier) -> T.TensorVariable:
@@ -13,39 +13,39 @@ def mean_zero_one_loss(classifier: Classifier) -> T.TensorVariable:
     return T.mean(zero_one_losses(classifier))
 
 
-def individual_log_likelihoods(model: Model) -> T.TensorVariable:
+def individual_log_likelihoods(classifier: Classifier) -> T.TensorVariable:
 
-    log_probability_matrix = T.log(model.output)
+    log_probability_matrix = T.log(classifier.output)
 
-    return log_probability_matrix[T.arange(model.y.shape[0]), model.y]
-
-
-def negative_log_likelihood(model: Model) -> T.TensorVariable:
-
-    return -T.sum(individual_log_likelihoods(model))
+    return log_probability_matrix[T.arange(classifier.labels.shape[0]), classifier.labels]
 
 
-def mean_negative_log_likelihood(model: Model) -> T.TensorVariable:
+def negative_log_likelihood(classifier: Classifier) -> T.TensorVariable:
 
-    return -T.mean(individual_log_likelihoods(model))
+    return -T.sum(individual_log_likelihoods(classifier))
 
 
-def composition(model: Model,
-                cost_function: Callable[[Model], T.TensorVariable],
-                regularization_weights: List[float],
+def mean_negative_log_likelihood(classifier: Classifier) -> T.TensorVariable:
+
+    return -T.mean(individual_log_likelihoods(classifier))
+
+
+def composition(classifier: Classifier,
+                cost_function: Callable[[Classifier], T.TensorVariable],
+                regularization_parameters: List[float],
                 regularization_functions: List[Callable[[Model], T.TensorVariable]]) -> T.TensorVariable:
 
-    cost = cost_function(model)
+    cost = cost_function(classifier)
 
-    regularization_terms = [function(model) for function in regularization_functions]
+    unweighted_regularization_terms = [function(classifier) for function in regularization_functions]
 
-    weighted_regularization_terms = [weight * term for weight, term in zip(regularization_weights, regularization_terms)]
+    regularization_terms = [weight * term for weight, term in zip(regularization_parameters, unweighted_regularization_terms)]
 
-    return cost + T.sum(weighted_regularization_terms)
+    return cost + T.sum(regularization_terms)
 
 
-def compose(cost_function: Callable[[Model], T.TensorVariable],
-            regularization_weights: List[float],
-            regularization_functions: List[Callable[[Model], T.TensorVariable]]) -> Callable[[Model], T.TensorVariable]:
+def compose(cost_function: Callable[[Classifier], T.TensorVariable],
+            regularization_parameters: List[float],
+            regularization_functions: List[Callable[[Model], T.TensorVariable]]) -> Callable[[Classifier], T.TensorVariable]:
 
-    return lambda model: composition(model, cost_function, regularization_weights, regularization_functions)
+    return lambda model: composition(model, cost_function, regularization_parameters, regularization_functions)
