@@ -14,6 +14,10 @@ class Model(metaclass=ABCMeta):
     input = T.TensorVariable
     labels = T.TensorVariable
 
+    def wire_up(self):
+
+        pass
+
     @abstractproperty
     def weights(self) -> List[T.TensorVariable]:
 
@@ -110,11 +114,6 @@ class GeneralizedLinearModel(Classifier):
     input = T.dmatrix('input')
     labels = T.ivector('labels')
 
-    def wire_up(self):
-
-        self.linear_layer.input = self.input
-        self.activation_layer.input = self.linear_layer.output
-
     def __init__(self,
                  linear_layer: LinearModel,
                  activation_layer: ActivationLayer):
@@ -123,6 +122,11 @@ class GeneralizedLinearModel(Classifier):
         self.activation_layer = activation_layer
 
         self.wire_up()
+
+    def wire_up(self):
+
+        self.linear_layer.input = self.input
+        self.activation_layer.input = self.linear_layer.output
 
     @property
     def weights(self) -> List[T.TensorVariable]:
@@ -145,6 +149,12 @@ class MultiLayerPerceptron(Classifier):
     input = T.dmatrix('input')
     labels = T.ivector('labels')
 
+    def __init__(self, *layers: List[GeneralizedLinearModel]):
+
+        self.layers = layers
+
+        self.wire_up()
+
     def wire_up(self):
 
         self.layers[0].input = self.input
@@ -154,12 +164,6 @@ class MultiLayerPerceptron(Classifier):
 
             self.layers[index].input = self.layers[index - 1].output
             self.layers[index].wire_up()
-
-    def __init__(self, *layers: List[GeneralizedLinearModel]):
-
-        self.layers = layers
-
-        self.wire_up()
 
     @property
     def weights(self) -> List[T.TensorVariable]:
@@ -194,7 +198,12 @@ class ConvolutionLayer(Model):
                  num_filters: int,
                  batch_size: int,
                  weight_initialization: Callable[[Tuple], ndarray],
-                 bias_initialization: Callable[[Tuple], ndarray]):
+                 bias_initialization: Callable[[Tuple], ndarray],
+                 zero_padding: bool=False,
+                 strides: Tuple[int, int]=(1, 1)):
+
+        self.border_mode = 'full' if zero_padding else 'valid'
+        self.subsample = strides
 
         self.input_tensor_shape = (batch_size, num_input_channels, input_height, input_width)
         self.filter_tensor_shape = (num_filters, num_input_channels, filter_height, filter_width)
@@ -228,22 +237,27 @@ class ConvolutionLayer(Model):
             input=self.input,
             filters=self.W,
             filter_shape=self.filter_tensor_shape,
-            input_shape=self.input_tensor_shape
+            input_shape=self.input_tensor_shape,
+            border_mode=self.border_mode,
+            subsample=self.subsample
         )
 
         return convolution + self.b.dimshuffle('x', 0, 'x', 'x')
 
 
-class MaxPoolingLayer(Model):
+class PoolingLayer(Model):
 
     input = T.tensor4('input')
 
     def __init__(self,
                  filter_height: int,
                  filter_width: int,
+                 mode: str='max',   # Alternatives: 'sum', 'average_inc_pad', 'average_exc_pad'
                  ignore_border: bool=True):
 
         self.filter_shape = (filter_height, filter_width)
+
+        self.mode = mode
         self.ignore_border = ignore_border
 
     @property
@@ -263,95 +277,57 @@ class MaxPoolingLayer(Model):
             input=self.input,
             ds=self.filter_shape,
             ignore_border=self.ignore_border,
-            mode='max'
+            mode=self.mode
         )
 
 
-class MaxConvLayer(Model):
-
-    input = T.tensor4('input')
-
-    def wire_up(self):
-
-        self.convolution_layer.input = self.input
-        self.max_pooling_layer.input = self.convolution_layer.output
-        self.activation_layer.input = self.max_pooling_layer.output
-
-    def __init__(self,
-                 convolution_layer: ConvolutionLayer,
-                 max_pooling_layer: MaxPoolingLayer,
-                 activation_layer: ActivationLayer):
-
-        self.convolution_layer = convolution_layer
-        self.max_pooling_layer = max_pooling_layer
-        self.activation_layer = activation_layer
-
-        self.wire_up()
-
-    @property
-    def weights(self):
-
-        return self.convolution_layer.weights
-
-    @property
-    def params(self):
-
-        return self.convolution_layer.params
-
-    @property
-    def output(self):
-
-        return self.activation_layer.output
-
-
-class LeNetModel(Classifier):
+class ConvolutionalNeuralNetwork(Classifier):
 
     input = T.dmatrix('input')
     labels = T.ivector('labels')
 
-    def wire_up(self):
-
-        input_tensor_shape = self.max_conv_layers[0].convolution_layer.input_tensor_shape
-
-        reshaped_input = self.input.reshape(input_tensor_shape)
-
-        self.max_conv_layers[0].input = reshaped_input
-        self.max_conv_layers[0].wire_up()
-
-        for index in range(1, len(self.max_conv_layers)):
-
-            self.max_conv_layers[index].input = self.max_conv_layers[index - 1].output
-            self.max_conv_layers[index].wire_up()
-
-        flattened_output = self.max_conv_layers[-1].output.flatten(2)
-
-        self.multi_layer_perceptron.input = flattened_output
-        self.multi_layer_perceptron.wire_up()
-
     def __init__(self,
-                 max_conv_layers: List[MaxConvLayer],
+                 input_tensor_shape: Tuple[int, int, int, int],
+                 cnn_layers: List[Model],
                  multi_layer_perceptron: MultiLayerPerceptron):
 
-        self.max_conv_layers = max_conv_layers
+        self.input_tensor_shape = input_tensor_shape
+        self.cnn_layers = cnn_layers
         self.multi_layer_perceptron = multi_layer_perceptron
 
         self.wire_up()
 
+    def wire_up(self):
+
+        reshaped_input = self.input.reshape(self.input_tensor_shape)
+
+        self.cnn_layers[0].input = reshaped_input
+
+        for index in range(1, len(self.cnn_layers)):
+
+            self.cnn_layers[index].input = self.cnn_layers[index - 1].output
+
+        flattened_output = self.cnn_layers[-1].output.flatten(2)
+
+        self.multi_layer_perceptron.input = flattened_output
+
+        self.multi_layer_perceptron.wire_up()
+
     @property
     def weights(self):
 
-        convolution_weights = flatten([max_conv_layer.weights for max_conv_layer in self.max_conv_layers])
+        cnn_layer_weights = flatten([layer.weights for layer in self.cnn_layers])
         perceptron_weights = self.multi_layer_perceptron.weights
 
-        return convolution_weights + perceptron_weights
+        return cnn_layer_weights + perceptron_weights
 
     @property
     def params(self):
 
-        convolution_params = flatten([max_conv_layer.params for max_conv_layer in self.max_conv_layers])
+        cnn_layer_params = flatten([layer.params for layer in self.cnn_layers])
         perceptron_params = self.multi_layer_perceptron.params
 
-        return convolution_params + perceptron_params
+        return cnn_layer_params + perceptron_params
 
     @property
     def output(self):
@@ -363,7 +339,11 @@ def load(file_path: str) -> Model:
 
     with open(file_path, 'rb') as file:
 
-        return pickle.load(file)
+        model = pickle.load(file)
+
+    model.wire_up()
+
+    return model
 
 
 def save(model: Model,
