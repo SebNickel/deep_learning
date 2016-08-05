@@ -44,8 +44,7 @@ class Classifier(Model, metaclass=ABCMeta):
 
 class ActivationLayer(Model):
 
-    def __init__(self,
-                 activation_function: Function):
+    def __init__(self, activation_function: Function):
 
         self.activation_function = activation_function
 
@@ -190,23 +189,20 @@ class ConvolutionLayer(Model):
     input = T.tensor4('input')
 
     def __init__(self,
-                 input_height: int,
-                 input_width: int,
-                 filter_height: int,
-                 filter_width: int,
-                 num_input_channels: int,
-                 num_filters: int,
-                 batch_size: int,
+                 input_tensor_shape: Tuple[int, int, int, int, int],
+                 filter_tensor_shape: Tuple[int, int, int, int],
                  weight_initialization: Callable[[Tuple], ndarray],
                  bias_initialization: Callable[[Tuple], ndarray],
                  zero_padding: bool=False,
                  strides: Tuple[int, int]=(1, 1)):
 
+        self.input_tensor_shape = input_tensor_shape
+        self.filter_tensor_shape = filter_tensor_shape
+
         self.border_mode = 'full' if zero_padding else 'valid'
         self.subsample = strides
 
-        self.input_tensor_shape = (batch_size, num_input_channels, input_height, input_width)
-        self.filter_tensor_shape = (num_filters, num_input_channels, filter_height, filter_width)
+        num_filters = filter_tensor_shape[0]
 
         self.W = theano.shared(
             value=weight_initialization(self.filter_tensor_shape),
@@ -243,6 +239,30 @@ class ConvolutionLayer(Model):
         )
 
         return convolution + self.b.dimshuffle('x', 0, 'x', 'x')
+
+    @classmethod
+    def build(cls,
+              input_height: int,
+              input_width: int,
+              filter_height: int,
+              filter_width: int,
+              num_input_channels: int,
+              num_filters: int,
+              batch_size: int,
+              weight_initialization: Callable[[Tuple], ndarray],
+              bias_initialization: Callable[[Tuple], ndarray],
+              zero_padding: bool=False,
+              strides: Tuple[int, int]=(1, 1)):
+
+        input_tensor_shape = (batch_size, num_input_channels, input_height, input_width)
+        filter_tensor_shape = (num_filters, num_input_channels, filter_height, filter_width)
+
+        return cls(input_tensor_shape,
+                   filter_tensor_shape,
+                   weight_initialization,
+                   bias_initialization,
+                   zero_padding,
+                   strides)
 
 
 class PoolingLayer(Model):
@@ -287,11 +307,17 @@ class ConvolutionalNeuralNetwork(Classifier):
     labels = T.ivector('labels')
 
     def __init__(self,
-                 input_tensor_shape: Tuple[int, int, int, int],
                  cnn_layers: List[Model],
                  multi_layer_perceptron: MultiLayerPerceptron):
 
-        self.input_tensor_shape = input_tensor_shape
+        if isinstance(cnn_layers[0], ConvolutionLayer):
+
+            self.input_tensor_shape = cnn_layers[0].input_tensor_shape
+
+        else:
+
+            raise ValueError('The first cnn_layer must be of type ConvolutionLayer')
+
         self.cnn_layers = cnn_layers
         self.multi_layer_perceptron = multi_layer_perceptron
 

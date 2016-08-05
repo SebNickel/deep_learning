@@ -112,9 +112,7 @@ if __name__ == '__main__':
         random_number_generator
     )
 
-    input_tensor_shape = (batch_size, num_input_channels_1, input_height_1, input_width_1)
-
-    convolutional_layer_1 = ConvolutionLayer(
+    convolutional_layer_1 = ConvolutionLayer.build(
         input_height=input_height_1,
         input_width=input_width_1,
         filter_height=filter_height_1,
@@ -147,7 +145,7 @@ if __name__ == '__main__':
         random_number_generator
     )
 
-    convolutional_layer_2 = ConvolutionLayer(
+    convolutional_layer_2 = ConvolutionLayer.build(
         input_height=input_height_2,
         input_width=input_width_2,
         filter_height=filter_height_2,
@@ -202,7 +200,6 @@ if __name__ == '__main__':
     multi_layer_perceptron = MultiLayerPerceptron(generalized_linear_model_1, generalized_linear_model_2)
 
     cnn = ConvolutionalNeuralNetwork(
-        input_tensor_shape,
         cnn_layers,
         multi_layer_perceptron
     )
