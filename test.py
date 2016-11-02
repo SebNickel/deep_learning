@@ -83,7 +83,7 @@ if __name__ == '__main__':
     validation_set_path = 'mnist_validate.pkl'
     test_set_path = 'mnist_test.pkl'
 
-    save_path = 'mnist_model.pkl'
+    save_path = 'mnist_model2.pkl'
 
     training_set = datasets.load(training_set_path)
     validation_set = datasets.load(validation_set_path)
